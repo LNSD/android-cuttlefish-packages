@@ -33,24 +33,6 @@ default, so pacman offers to import it during this first install:
 `TrustedOnly`, a key that was merely imported still has unknown trust and the
 install fails despite the prompt.
 
-Join the `cvdnetwork` group, which grants access to the virtual devices'
-network interfaces:
-
-```sh
-sudo usermod -aG cvdnetwork "$USER"
-```
-
-Group membership is only picked up at login, so log out and back in before
-starting a device.
-
-Enable the host resources unit, which sets up what a virtual device attaches
-to: the `cvd-ebr` bridge, the `cvd-*tap` interfaces, their `dnsmasq` instances
-and the matching nftables rules:
-
-```sh
-sudo systemctl enable --now cuttlefish-host-resources.service
-```
-
 <details>
 <summary>Or trust the key explicitly, without <code>TrustAll</code></summary>
 
@@ -72,6 +54,24 @@ SigLevel = Required DatabaseOptional
 ```
 
 </details>
+
+Join the `cvdnetwork` group, which grants access to the virtual devices'
+network interfaces:
+
+```sh
+sudo usermod -aG cvdnetwork "$USER"
+```
+
+Group membership is only picked up at login, so log out and back in before
+starting a device.
+
+Enable the host resources unit, which sets up what a virtual device attaches
+to: the `cvd-ebr` bridge, the `cvd-*tap` interfaces, their `dnsmasq` instances
+and the matching nftables rules:
+
+```sh
+sudo systemctl enable --now cuttlefish-host-resources.service
+```
 
 `releases/latest/download` always resolves to the newest release, so the URL
 never needs updating. Each release is self-contained: its `android-cuttlefish.db`
