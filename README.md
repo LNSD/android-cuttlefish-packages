@@ -16,16 +16,14 @@ SigLevel = Required TrustAll
 Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
 ```
 
-Then:
+Install the packages:
 
 ```sh
 sudo pacman -Sy cuttlefish-base-bin cuttlefish-user-bin
-sudo usermod -aG cvdnetwork "$USER"      # log out and back in
-sudo systemctl enable --now cuttlefish-host-resources.service
 ```
 
 The signing key is published on `keyserver.ubuntu.com`, which is pacman's
-default, so pacman offers to import it during that first install:
+default, so pacman offers to import it during this first install:
 
 ```
 :: Import PGP key 6B6480C55419E90D, "Lorenzo Delgado <lnsdev@proton.me>"? [Y/n]
@@ -34,6 +32,24 @@ default, so pacman offers to import it during that first install:
 `TrustAll` is what makes the imported key acceptable: under pacman's default
 `TrustedOnly`, a key that was merely imported still has unknown trust and the
 install fails despite the prompt.
+
+Join the `cvdnetwork` group, which grants access to the virtual devices'
+network interfaces:
+
+```sh
+sudo usermod -aG cvdnetwork "$USER"
+```
+
+Group membership is only picked up at login, so log out and back in before
+starting a device.
+
+Enable the host resources unit, which sets up what a virtual device attaches
+to: the `cvd-ebr` bridge, the `cvd-*tap` interfaces, their `dnsmasq` instances
+and the matching nftables rules:
+
+```sh
+sudo systemctl enable --now cuttlefish-host-resources.service
+```
 
 <details>
 <summary>Or trust the key explicitly, without <code>TrustAll</code></summary>
