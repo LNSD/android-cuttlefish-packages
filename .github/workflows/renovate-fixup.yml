@@ -1,0 +1,44 @@
+name: Renovate fixup
+
+# Renovate (Mend app) bumps pkgver, but cannot resolve _debhash or the .deb
+# checksum -- neither is a function of the version, and postUpgradeTasks is
+# self-hosted-only. This completes the bump on Renovate's own branch, so the
+# pull request it opened becomes mergeable.
+#
+# See the note at the bottom of renovate.json5.
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['packages/**/PKGBUILD']
+
+permissions:
+  contents: write
+
+jobs:
+  fixup:
+    # Only Renovate's branches; a human bump is caught by check.yml instead.
+    if: startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          # A PAT, not GITHUB_TOKEN: pushes made with GITHUB_TOKEN do not
+          # trigger workflows, so check.yml would never re-run and the pull
+          # request would sit with the pre-fixup (failing) result.
+          token: ${{ secrets.RENOVATE_FIXUP_TOKEN }}
+
+      - name: Resolve _debhash and sha256sums for the new pkgver
+        run: python3 scripts/resolve-deb.py
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet -- packages; then
+            echo "Nothing to fix up."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'packages: resolve .deb filename hash and checksum' -- packages
+          git push

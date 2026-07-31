@@ -90,16 +90,22 @@ Two PKGBUILD fields are *not* functions of `pkgver` and so cannot be templated:
 - `sha256sums[0]` — the checksum of the `.deb`.
 
 `scripts/resolve-deb.py` resolves both from the upstream package index and
-verifies the checksum against the actual downloaded bytes. Renovate invokes it
-through `postUpgradeTasks`; `check.yml` re-runs it with `--check` on every pull
-request, so a hand-edited bump that skipped it fails before merge.
+verifies the checksum against the actual downloaded bytes.
 
-> Renovate runs **self-hosted** (`.github/workflows/renovate.yml`), not as the
-> Mend GitHub App, because `postUpgradeTasks.commands` are validated against
-> `allowedCommands` — a self-hosted-only admin option.
+Renovate runs as the **Mend GitHub App**, configured by
+`.github/renovate.json5`. The app cannot run the resolver itself —
+`postUpgradeTasks.commands` are validated against `allowedCommands`, a
+self-hosted-only admin option — so the flow is:
 
-Merging a bump to `main` triggers `release.yml`, which rebuilds everything and
-publishes a new release.
+1. Renovate opens a pull request bumping `pkgver`.
+2. `renovate-fixup.yml` runs the resolver on that branch and commits the
+   resulting `_debhash` and checksum.
+3. `check.yml` re-runs the resolver with `--check`, and builds and installs the
+   packages. A bump that skipped step 2 fails here rather than being merged.
+4. Merging to `main` triggers `release.yml`, which rebuilds and publishes.
+
+Step 2 pushes with a PAT (`RENOVATE_FIXUP_TOKEN`), because pushes made with
+`GITHUB_TOKEN` do not trigger workflows — step 3 would otherwise never re-run.
 
 ## Building locally
 
@@ -131,8 +137,8 @@ equivalent.
 packages/<name>/PKGBUILD      one directory per package
 scripts/build.sh              build all, assemble the repository database
 scripts/resolve-deb.py        resolve _debhash + checksum for the current pkgver
-renovate.json                 upstream tracking
-.github/workflows/            check, renovate, release
+.github/renovate.json5        upstream tracking (Mend GitHub App)
+.github/workflows/            check, renovate-fixup, release
 ```
 
 ## Licence

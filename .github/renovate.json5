@@ -1,0 +1,46 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    'helpers:pinGitHubActionDigests',
+  ],
+  configMigration: true,
+  rebaseWhen: 'behind-base-branch',
+  labels: [
+    'dependencies',
+  ],
+  enabledManagers: [
+    'github-actions',
+    'custom.regex',
+  ],
+  customManagers: [
+    // Google publishes Cuttlefish only as Debian packages, with no GitHub
+    // release to subscribe to. The deb datasource reads their apt index
+    // directly. The annotation naming the package sits directly above pkgver
+    // in each PKGBUILD, so one manager covers every package in the repo.
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/(^|/)PKGBUILD$/',
+      ],
+      matchStrings: [
+        '#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\npkgver=(?<currentValue>\\S+)',
+      ],
+      // Not fetched as a URL: the deb datasource uses suite, components and
+      // binaryArch to locate the index. All three are required.
+      registryUrlTemplate: 'https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts?suite=android-cuttlefish&components=main&binaryArch=amd64',
+      versioningTemplate: 'deb',
+    },
+  ],
+  packageRules: [
+    // The Cuttlefish packages are versioned and released together upstream, so
+    // splitting them would produce two PRs that each break the other's release.
+    {
+      groupName: 'cuttlefish',
+      matchDatasources: [
+        'deb',
+      ],
+      commitMessageTopic: 'cuttlefish',
+    },
+  ],
+}

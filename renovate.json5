@@ -1,0 +1,48 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended'],
+  labels: ['dependencies'],
+
+  customManagers: [
+    {
+      // Google publishes Cuttlefish only as Debian packages, with no GitHub
+      // release to subscribe to. The deb datasource reads their apt index
+      // directly; the annotation naming the package sits above pkgver in each
+      // PKGBUILD.
+      description: "Track Cuttlefish .deb versions against Google's apt repository",
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)PKGBUILD$/'],
+      matchStrings: [
+        '#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\npkgver=(?<currentValue>\\S+)',
+      ],
+      // Not fetched as a URL: the datasource uses these parameters to locate
+      // the index. suite/components/binaryArch are required.
+      registryUrlTemplate: 'https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts?suite=android-cuttlefish&components=main&binaryArch=amd64',
+      versioningTemplate: 'deb',
+    },
+  ],
+
+  packageRules: [
+    {
+      // The two packages are versioned and released together upstream, so a
+      // split would produce two PRs that each break the other's release.
+      description: 'Cuttlefish upgrades land as a single pull request',
+      matchDatasources: ['deb'],
+      groupName: 'cuttlefish',
+      commitMessageTopic: 'cuttlefish',
+    },
+  ],
+
+  // NOTE: no postUpgradeTasks here.
+  //
+  // Renovate can only bump pkgver. Two further PKGBUILD fields are not
+  // functions of the version and so cannot be templated:
+  //
+  //   _debhash       Artifact Registry appends an opaque hash to filenames.
+  //   sha256sums[0]  the checksum of the .deb.
+  //
+  // postUpgradeTasks would be the natural place to resolve them, but its
+  // `commands` are validated against `allowedCommands`, a self-hosted-only
+  // admin option that the Mend app does not expose. So the fixup runs as a
+  // GitHub Actions workflow instead -- .github/workflows/renovate-fixup.yml.
+}

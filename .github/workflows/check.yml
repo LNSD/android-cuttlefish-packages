@@ -1,8 +1,5 @@
 name: Check
 
-# Static checks on every pull request. The expensive part -- actually building
-# the packages -- happens in release.yml after merge.
-
 on:
   pull_request:
   push:
@@ -13,6 +10,7 @@ permissions:
 
 jobs:
   lint:
+    name: Lint sources
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:
@@ -26,9 +24,9 @@ jobs:
       - name: _debhash and sha256sums match the upstream index
         run: python3 scripts/resolve-deb.py --check
 
-      # namcap is the Arch package linter. On a PKGBUILD it catches missing or
-      # redundant dependencies, bad field usage and packaging-convention errors.
-      - name: namcap
+      # On a PKGBUILD, namcap checks field usage and packaging conventions.
+      # The more valuable pass is on the built package, in the `build` job.
+      - name: namcap (PKGBUILD)
         run: namcap packages/*/PKGBUILD
 
       # PKGBUILDs are bash. SC2034/SC2154 are inherent to the format: makepkg
@@ -44,6 +42,7 @@ jobs:
         run: shfmt --diff --indent 2 --case-indent packages/*/PKGBUILD scripts/*.sh
 
   python:
+    name: Lint Python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,3 +52,91 @@ jobs:
       - uses: astral-sh/ruff-action@v3
         with:
           args: format --check
+
+  build:
+    name: Build packages
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install tooling
+        run: pacman -Syu --noconfirm git namcap pacman-contrib sudo
+
+      - uses: actions/checkout@v4
+
+      # makepkg refuses to run as root, and the container starts as root.
+      - name: Create an unprivileged build user
+        run: |
+          useradd --create-home builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chown -R builder:builder .
+
+      - name: Build
+        run: sudo --user=builder ./scripts/build.sh
+
+      # namcap on a built package inspects the actual payload: ELF linkage
+      # against the declared depends, permissions, file placement, licensing.
+      #
+      # Warnings are expected and not failed on: namcap infers dependencies
+      # from ELF linkage alone, so it reports every runtime tool we depend on
+      # (dnsmasq, iptables, ...) as unnecessary. Errors are real, so gate those.
+      - name: namcap (built packages)
+        run: |
+          namcap dist/*.pkg.tar.zst | tee namcap.log
+          if grep -q ' E: ' namcap.log; then
+            echo "::error::namcap reported errors"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/*.pkg.tar.zst
+          retention-days: 7
+
+  install:
+    name: Install into a clean system
+    needs: build
+    runs-on: ubuntu-latest
+    # Deliberately `base`, not `base-devel`: installing into a system without
+    # build tooling proves depends=() is complete for runtime, not just build.
+    container: archlinux:base
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+
+      - name: pacman -U
+        run: |
+          pacman -Syu --noconfirm
+          # Resolves the declared dependencies from the official repositories.
+          pacman -U --noconfirm ./*.pkg.tar.zst
+
+      - name: The packaged files landed where Arch expects them
+        run: |
+          set -eux
+          test -f /usr/lib/systemd/system/cuttlefish-host-resources.service
+          test -f /usr/lib/systemd/system/cuttlefish-operator.service
+          test -f /usr/lib/udev/rules.d/60-cuttlefish-base.rules
+          test -f /etc/modules-load.d/cuttlefish-common.conf
+          # `cvd` is the user-facing entry point the .deb installs. Note that
+          # launch_cvd/stop_cvd are NOT here: they ship in the per-build
+          # cvd-host_package.tar.gz, alongside the device image.
+          test -x /usr/bin/cvd
+          test -x /usr/lib/cuttlefish-common/bin/cvd_internal_start
+          test -x /usr/bin/cvd_host_orchestrator
+          # Nothing may remain at the Debian locations.
+          test ! -e /lib/systemd
+          test ! -e /etc/init.d
+
+      - name: The install scripts did their work
+        run: |
+          set -eux
+          # sysusers.d, applied by pacman's systemd hook.
+          getent group cvdnetwork
+          getent passwd _cutf-operator
+          # File capabilities, set by post_install().
+          getcap /usr/lib/cuttlefish-common/bin/cvdalloc | grep -q cap_net_admin
+          getcap /usr/lib/cuttlefish-common/bin/cvd_refresh_groups | grep -q cap_setgid
+
+      - name: Package contents verify against the database
+        run: pacman -Qkk cuttlefish-base-bin cuttlefish-user-bin
