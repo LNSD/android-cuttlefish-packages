@@ -113,25 +113,20 @@ jobs:
 
           ## Install
 
-          Trust the signing key once:
-
-          \`\`\`sh
-          curl -fsSL https://raw.githubusercontent.com/${repo}/main/keys/lnsdev.asc \\
-            | sudo pacman-key --add -
-          sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
-          \`\`\`
-
           Add to \`/etc/pacman.conf\`:
 
           \`\`\`ini
           [cuttlefish]
-          SigLevel = Required DatabaseOptional
+          SigLevel = Required TrustAll
           Server = https://github.com/${repo}/releases/latest/download
           \`\`\`
 
           \`\`\`sh
           sudo pacman -Sy cuttlefish-base-bin cuttlefish-user-bin
           \`\`\`
+
+          pacman offers to import the signing key on that first install. To pin
+          trust to this key instead of using \`TrustAll\`, see the README.
 
           ## Verify
 
