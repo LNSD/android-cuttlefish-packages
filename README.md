@@ -149,46 +149,23 @@ does not implement the `security.capability` xattr.
 
 ## Updating
 
-[Renovate][rn] watches [upstream's GitHub releases][up] and opens a pull request
-when a new version appears.
+Updates are automated end to end:
+
+1. [Renovate][rn] watches [upstream's GitHub releases][up] and opens a pull
+   request bumping `pkgver`.
+2. `renovate-fixup.yml` runs `scripts/resolve-deb.py`, which fills in the two
+   fields that cannot be derived from a version: the `.deb` filename hash and
+   its checksum.
+3. `check.yml` builds the packages and installs them into a clean container.
+4. Merging to `main` triggers `release.yml`, which rebuilds and publishes.
 
 [rn]: https://docs.renovatebot.com/
 [up]: https://github.com/google/android-cuttlefish/releases
 
-> [!NOTE]
-> It deliberately does **not** use Renovate's `deb` datasource against the apt
-> repository the packages are downloaded from. That datasource fetches
-> `Packages.gz` unconditionally, with no uncompressed fallback, while Google's
-> Artifact Registry serves only an uncompressed `Packages` index, so every
-> lookup returns `no-result`.
->
-> Upstream tags each release `vX.Y.Z` and publishes an identically versioned
-> `.deb`, verified across v1.52.1 through v1.55.1, so the release tag is a
-> faithful proxy for the package version.
-
-Two PKGBUILD fields are *not* functions of `pkgver` and so cannot be templated:
-
-- `_debhash`: Artifact Registry appends an opaque hash to every filename, so
-  the download URL cannot be derived from the version.
-- `sha256sums[0]`: the checksum of the `.deb`.
-
-`scripts/resolve-deb.py` resolves both from the upstream package index and
-verifies the checksum against the actual downloaded bytes.
-
-Renovate runs as the **Mend GitHub App**, configured by
-`.github/renovate.json5`. The app cannot run the resolver itself, because
-`postUpgradeTasks.commands` are validated against `allowedCommands`, a
-self-hosted-only admin option. The flow is:
-
-1. Renovate opens a pull request bumping `pkgver`.
-2. `renovate-fixup.yml` runs the resolver on that branch and commits the
-   resulting `_debhash` and checksum.
-3. `check.yml` re-runs the resolver with `--check`, and builds and installs the
-   packages. A bump that skipped step 2 fails here rather than being merged.
-4. Merging to `main` triggers `release.yml`, which rebuilds and publishes.
-
-Step 2 pushes with a PAT (`RENOVATE_FIXUP_TOKEN`), because pushes made with
-`GITHUB_TOKEN` do not trigger workflows, so step 3 would otherwise never re-run.
+See [`.github/renovate.json5`](.github/renovate.json5) for why the release feed
+rather than the apt repository, and
+[`renovate-fixup.yml`](.github/workflows/renovate-fixup.yml) for why step 2 is a
+workflow rather than a Renovate `postUpgradeTask`.
 
 ## Signing, SBOM and provenance
 
