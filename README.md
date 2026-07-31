@@ -8,10 +8,12 @@ official `.deb`s so `pacman` and `pamac` can install and update them normally.
 
 ## Install
 
-Trust the signing key once:
+Trust the signing key once. The key ships in this repository, so no keyserver
+is involved:
 
 ```sh
-sudo pacman-key --recv-keys 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
+curl -fsSL https://raw.githubusercontent.com/LNSD/android-cuttlefish-packages/main/keys/lnsdev.asc \
+  | sudo pacman-key --add -
 sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
 ```
 
@@ -151,12 +153,15 @@ signing-only subkey, not from a passphrase.
 Signing is separate from `build.sh` because the two cannot share a user:
 `makepkg` refuses to run as root, while CI imports the key into root's keyring.
 
-To verify signatures, trust the key once, then tighten `SigLevel`:
+The public key is committed at [`keys/lnsdev.asc`](keys/lnsdev.asc) and is the
+recommended way to obtain it, as shown under [Install](#install). It is also on
+`keyserver.ubuntu.com`.
 
-```sh
-sudo pacman-key --recv-keys 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
-sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
-```
+> [!NOTE]
+> `keys.openpgp.org` is **not** a usable source for it. That server strips user
+> IDs until the address is verified by email, and gpg skips a key with no user
+> ID (`new key but contains no user ID - skipped`), so `pacman-key --recv-keys`
+> against it fails.
 
 ```ini
 [cuttlefish]
