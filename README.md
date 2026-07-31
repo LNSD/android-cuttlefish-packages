@@ -49,10 +49,13 @@ resolves to only:
 
 Everything else is statically linked, including the bundled software Vulkan
 renderer (`libvk_swiftshader.so`). The rest of the Debian `Depends:` field is
-runtime *tooling* — `dnsmasq`, `bridge-utils`, `iptables`, `nftables`, `jq`,
-`python3` — which maps directly onto Arch packages. Debian's `libc6 (>= 2.36)`
-floor is satisfied by any current Arch, glibc symbol versioning being
-forward-compatible.
+runtime *tooling* — `dnsmasq`, `iptables`, `nftables`, `jq`, `python3` — which
+maps directly onto Arch packages. Debian's `libc6 (>= 2.36)` floor is satisfied
+by any current Arch, glibc symbol versioning being forward-compatible.
+
+One exception: Debian's `bridge-utils` is dropped. It no longer exists in the
+Arch repositories, and nothing in the payload calls `brctl` — bridges are made
+with `ip link add`, and the `bridge` kernel module is `modprobe`'d directly.
 
 ### What the packaging changes
 
@@ -60,11 +63,18 @@ forward-compatible.
 |---|---|
 | `/lib/systemd/system/` | `/usr/lib/systemd/system/` |
 | `/lib/udev/rules.d/` | `/usr/lib/udev/rules.d/` |
-| `/etc/init.d/*` (SysV) | dropped — the systemd units supersede it |
+| `/etc/init.d/*` (SysV) | `/usr/lib/cuttlefish-common/init/`, with the units repointed |
+| `/usr/share/doc/`, `/usr/share/lintian/` | dropped; `copyright` moves to `/usr/share/licenses/` |
 | `postinst`: `addgroup --system cvdnetwork` | `sysusers.d` |
 | `postinst`: `adduser --system _cutf-operator` | `sysusers.d` |
 | `postinst`: `setcap` on two binaries | `.install` `post_install()` |
 | `postinst`: `modprobe` loop | `modules-load.d`, which Arch reads natively |
+
+The SysV scripts are relocated rather than deleted: both systemd units are
+`dh_installinit` wrappers whose `ExecStart` *is* the init script, so dropping
+them leaves the units pointing at nothing. They also source
+`/lib/lsb/init-functions`, which Arch does not ship — but call none of its
+functions, so that line is removed.
 
 `setcap` cannot move into `package()`: `makepkg` builds under `fakeroot`, which
 does not implement the `security.capability` xattr.
@@ -130,16 +140,6 @@ The bootstrap is unavoidably circular — signature checking cannot validate the
 key that enables it. devkitPro solves this with a `devkitpro-keyring` package
 installed out of band; the manual `pacman-key` route above is the lighter
 equivalent.
-
-## Layout
-
-```
-packages/<name>/PKGBUILD      one directory per package
-scripts/build.sh              build all, assemble the repository database
-scripts/resolve-deb.py        resolve _debhash + checksum for the current pkgver
-.github/renovate.json5        upstream tracking (Mend GitHub App)
-.github/workflows/            check, renovate-fixup, release
-```
 
 ## Licence
 
