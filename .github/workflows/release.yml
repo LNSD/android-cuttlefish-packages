@@ -100,12 +100,14 @@ jobs:
           # Written to a file and applied on both paths below. Generating the
           # notes once is what keeps them from drifting: a re-run that only
           # uploaded assets used to leave stale notes behind for ever.
+          #
+          # Each paragraph is one long line on purpose. GitHub renders release
+          # notes with hard line breaks, so a wrapped paragraph is displayed
+          # with the wrap points in it. Do not reflow these to 72 columns.
           cat > notes.md <<EOF
-          Arch packages repackaged from Google's official Cuttlefish .deb
-          ${{ steps.version.outputs.version }}.
+          Arch packages repackaged from Google's official Cuttlefish .deb ${{ steps.version.outputs.version }}.
 
-          Packages and the database are GPG-signed, carry an SBOM, and have a
-          SLSA provenance attestation.
+          Packages and the database are GPG-signed, carry an SBOM, and have a SLSA provenance attestation.
 
           ## Install
 
@@ -121,8 +123,7 @@ jobs:
           sudo pacman -Sy cuttlefish-base-bin cuttlefish-user-bin
           \`\`\`
 
-          pacman offers to import the signing key on that first install. To pin
-          trust to this key instead of using \`TrustAll\`, see the README.
+          pacman offers to import the signing key on that first install. To pin trust to this key instead of using \`TrustAll\`, see the README.
 
           ## Verify
 
