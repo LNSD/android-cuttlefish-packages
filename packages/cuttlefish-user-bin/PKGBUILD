@@ -63,7 +63,7 @@ package() {
   install -Dm644 "${pkgname}.sysusers" \
     "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
 
-  # As in cuttlefish-base-bin: Arch keeps licences elsewhere, and Debian's
+  # As in cuttlefish-base-bin: Arch keeps licenses elsewhere, and Debian's
   # changelog and lintian overrides have no meaning here.
   install -Dm644 "${pkgdir}/usr/share/doc/${_debpkg}/copyright" \
     "${pkgdir}/usr/share/licenses/${pkgname}/copyright"

@@ -8,11 +8,18 @@ official `.deb`s so `pacman` and `pamac` can install and update them normally.
 
 ## Install
 
+Trust the signing key once:
+
+```sh
+sudo pacman-key --recv-keys 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
+sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
+```
+
 Add to `/etc/pacman.conf`:
 
 ```ini
 [cuttlefish]
-SigLevel = Optional TrustAll
+SigLevel = Required DatabaseOptional
 Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
 ```
 
@@ -28,8 +35,8 @@ sudo systemctl enable --now cuttlefish-host-resources.service
 never needs updating. Each release is self-contained: its `cuttlefish.db`
 indexes exactly the packages published beside it.
 
-> `SigLevel = Optional TrustAll` accepts unsigned packages. Signing would need a
-> key distributed out of band — see [Signing](#signing).
+Every release is signed, carries an SBOM, and has a provenance attestation. See
+[Signing, SBOM and provenance](#signing-sbom-and-provenance).
 
 ## Why repackaging is sound
 
@@ -49,12 +56,12 @@ resolves to only:
 
 Everything else is statically linked, including the bundled software Vulkan
 renderer (`libvk_swiftshader.so`). The rest of the Debian `Depends:` field is
-runtime *tooling* — `dnsmasq`, `iptables`, `nftables`, `jq`, `python3` — which
+runtime *tooling* (`dnsmasq`, `iptables`, `nftables`, `jq`, `python3`), which
 maps directly onto Arch packages. Debian's `libc6 (>= 2.36)` floor is satisfied
 by any current Arch, glibc symbol versioning being forward-compatible.
 
 One exception: Debian's `bridge-utils` is dropped. It no longer exists in the
-Arch repositories, and nothing in the payload calls `brctl` — bridges are made
+Arch repositories, and nothing in the payload calls `brctl`: bridges are made
 with `ip link add`, and the `bridge` kernel module is `modprobe`'d directly.
 
 ### What the packaging changes
@@ -73,7 +80,7 @@ with `ip link add`, and the `bridge` kernel module is `modprobe`'d directly.
 The SysV scripts are relocated rather than deleted: both systemd units are
 `dh_installinit` wrappers whose `ExecStart` *is* the init script, so dropping
 them leaves the units pointing at nothing. They also source
-`/lib/lsb/init-functions`, which Arch does not ship — but call none of its
+`/lib/lsb/init-functions`, which Arch does not ship, but call none of its
 functions, so that line is removed.
 
 `setcap` cannot move into `package()`: `makepkg` builds under `fakeroot`, which
@@ -95,17 +102,17 @@ opens a pull request when a new version appears.
 
 Two PKGBUILD fields are *not* functions of `pkgver` and so cannot be templated:
 
-- `_debhash` — Artifact Registry appends an opaque hash to every filename, so
+- `_debhash`: Artifact Registry appends an opaque hash to every filename, so
   the download URL cannot be derived from the version.
-- `sha256sums[0]` — the checksum of the `.deb`.
+- `sha256sums[0]`: the checksum of the `.deb`.
 
 `scripts/resolve-deb.py` resolves both from the upstream package index and
 verifies the checksum against the actual downloaded bytes.
 
 Renovate runs as the **Mend GitHub App**, configured by
-`.github/renovate.json5`. The app cannot run the resolver itself —
+`.github/renovate.json5`. The app cannot run the resolver itself, because
 `postUpgradeTasks.commands` are validated against `allowedCommands`, a
-self-hosted-only admin option — so the flow is:
+self-hosted-only admin option. The flow is:
 
 1. Renovate opens a pull request bumping `pkgver`.
 2. `renovate-fixup.yml` runs the resolver on that branch and commits the
@@ -115,7 +122,7 @@ self-hosted-only admin option — so the flow is:
 4. Merging to `main` triggers `release.yml`, which rebuilds and publishes.
 
 Step 2 pushes with a PAT (`RENOVATE_FIXUP_TOKEN`), because pushes made with
-`GITHUB_TOKEN` do not trigger workflows — step 3 would otherwise never re-run.
+`GITHUB_TOKEN` do not trigger workflows, so step 3 would otherwise never re-run.
 
 ## Building locally
 
@@ -131,9 +138,15 @@ All three are produced automatically by `release.yml`. Nothing is signed or
 attested by hand.
 
 **Packages and the database are GPG-signed** with a signing-only subkey of
-`Lorenzo Delgado <lnsdev@proton.me>`, held as a repository secret. `sign.sh`
-detach-signs each package and rebuilds the database with `--include-sigs`, so
-pacman knows to expect a signature.
+`Lorenzo Delgado <lnsdev@proton.me>`, held as the `GPG_SIGNING_KEY` repository
+secret. `sign.sh` detach-signs each package and rebuilds the database with
+`--include-sigs`, so pacman knows to expect a signature.
+
+The CI copy is a **passphrase-less subkey**, exported with a stub primary, so
+the primary secret never leaves the author's machine. A passphrase would buy
+nothing: it would sit in the same secret store as the key, so anything able to
+read one could read the other. Isolation comes from the key being a revocable,
+signing-only subkey, not from a passphrase.
 
 Signing is separate from `build.sh` because the two cannot share a user:
 `makepkg` refuses to run as root, while CI imports the key into root's keyring.
@@ -151,13 +164,13 @@ SigLevel = Required DatabaseOptional
 Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
 ```
 
-The bootstrap is unavoidably circular — signature checking cannot validate the
+The bootstrap is unavoidably circular: signature checking cannot validate the
 key that enables it. devkitPro solves this with a `devkitpro-keyring` package
 installed out of band; the manual `pacman-key` route above is the lighter
 equivalent.
 
 **Provenance** is attested with `actions/attest-build-provenance`, using
-Sigstore keyless signing — no key, no secret:
+Sigstore keyless signing, so there is no key and no secret:
 
 ```sh
 gh attestation verify cuttlefish-base-bin-*.pkg.tar.zst \
@@ -165,7 +178,7 @@ gh attestation verify cuttlefish-base-bin-*.pkg.tar.zst \
 ```
 
 This attests that the artifact was built by this workflow, from this commit. It
-says **nothing** about Google's binaries inside it — that link is the `.deb`
+says **nothing** about Google's binaries inside it. That link is the `.deb`
 checksum, verified against the upstream index by `resolve-deb.py`.
 
 **An SBOM** (`cuttlefish.spdx.json`) is generated with syft and attested with
@@ -178,9 +191,9 @@ checksum, verified against the upstream index by `resolve-deb.py`.
 > was compiled into them is invisible to any scanner. A complete SBOM could only
 > come from Google.
 
-## Licence
+## License
 
-The packaging in this repository — the PKGBUILDs, scripts and workflows — is
+The packaging in this repository (the PKGBUILDs, scripts and workflows) is
 dual-licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
@@ -195,5 +208,5 @@ described above, and is not affiliated with or endorsed by Google.
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 licence, shall be
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual-licensed as above, without any additional terms or conditions.
