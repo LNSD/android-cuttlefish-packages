@@ -5,9 +5,7 @@
 #
 #   ./scripts/build.sh          -> dist/ containing packages + android-cuttlefish.db
 #
-# Signing is deliberately not done here: makepkg refuses to run as root, while
-# in CI the GPG key is imported into root's keyring. Build unsigned as an
-# unprivileged user, then run scripts/sign.sh as the key's owner.
+# Signing is not done here; build unsigned, then run scripts/sign.sh.
 #
 # makepkg refuses to run as root, so run this as a normal user with sudo rights
 # (or, in CI, as the unprivileged build user the workflow creates).

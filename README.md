@@ -208,14 +208,8 @@ attested by hand.
 secret. `sign.sh` detach-signs each package and rebuilds the database with
 `--include-sigs`, so pacman knows to expect a signature.
 
-The CI copy is a **passphrase-less subkey**, exported with a stub primary, so
-the primary secret never leaves the author's machine. A passphrase would buy
-nothing: it would sit in the same secret store as the key, so anything able to
-read one could read the other. Isolation comes from the key being a revocable,
-signing-only subkey, not from a passphrase.
-
-Signing is separate from `build.sh` because the two cannot share a user:
-`makepkg` refuses to run as root, while CI imports the key into root's keyring.
+Signing runs in `sign.sh`, separately from `build.sh`, because `makepkg` must
+not run as root.
 
 The public key is committed at [`keys/lnsdev.asc`](keys/lnsdev.asc) and is the
 recommended way to obtain it, as shown under [Install](#install). It is also on

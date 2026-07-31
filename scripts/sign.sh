@@ -6,8 +6,7 @@
 #
 #   SIGNING_KEY=0xDEADBEEF ./scripts/sign.sh
 #
-# This is separate from build.sh because the two cannot share a user: makepkg
-# refuses to run as root, while in CI the key is imported into root's keyring.
+# This is separate from build.sh because makepkg must not run as root.
 
 set -euo pipefail
 

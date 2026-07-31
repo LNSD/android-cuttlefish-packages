@@ -46,10 +46,6 @@ jobs:
       - name: Build
         run: sudo --user=builder ./scripts/build.sh
 
-      # The key is a passphrase-less, signing-only subkey. A passphrase would
-      # buy nothing here: it would live in the same secret store as the key, so
-      # anything that can read one can read the other. It would only add
-      # gpg-agent failure modes to an unattended job.
       - name: Import the signing subkey
         id: gpg
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
