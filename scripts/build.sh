@@ -5,8 +5,6 @@
 #
 #   ./scripts/build.sh          -> dist/ containing packages + android-cuttlefish.db
 #
-# Signing is not done here; build unsigned, then run scripts/sign.sh.
-#
 # makepkg refuses to run as root, so run this as a normal user with sudo rights
 # (or, in CI, as the unprivileged build user the workflow creates).
 
