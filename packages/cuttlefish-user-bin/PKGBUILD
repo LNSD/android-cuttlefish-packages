@@ -14,7 +14,7 @@ license=('Apache-2.0')
 provides=("${_debpkg}")
 conflicts=("${_debpkg}" "${_debpkg}-git")
 
-# renovate: datasource=deb depName=cuttlefish-user
+# renovate: datasource=github-releases depName=google/android-cuttlefish
 pkgver=1.55.1
 
 _debhash='635348e376496018d8e1d74f67355b54'

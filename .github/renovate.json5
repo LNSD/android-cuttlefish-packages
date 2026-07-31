@@ -14,10 +14,19 @@
     'custom.regex',
   ],
   customManagers: [
-    // Google publishes Cuttlefish only as Debian packages, with no GitHub
-    // release to subscribe to. The deb datasource reads their apt index
-    // directly. The annotation naming the package sits directly above pkgver
-    // in each PKGBUILD, so one manager covers every package in the repo.
+    // Tracks upstream's GitHub releases rather than the apt repository the
+    // .debs are actually downloaded from.
+    //
+    // The deb datasource cannot read that repository: it fetches Packages.gz
+    // unconditionally (`const compression = 'gz'`, no uncompressed fallback),
+    // while Google's Artifact Registry serves only an uncompressed Packages
+    // index. Every lookup came back `no-result`.
+    //
+    // Upstream tags each release vX.Y.Z and publishes the identically
+    // versioned .deb, verified across v1.52.1 through v1.55.1, so the release
+    // tag is a faithful proxy. scripts/resolve-deb.py still reads the apt
+    // index for the filename hash and checksum, and fails loudly if the .deb
+    // for a tagged release is not published yet.
     {
       customType: 'regex',
       managerFilePatterns: [
@@ -26,19 +35,18 @@
       matchStrings: [
         '#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\npkgver=(?<currentValue>\\S+)',
       ],
-      // Not fetched as a URL: the deb datasource uses suite, components and
-      // binaryArch to locate the index. All three are required.
-      registryUrlTemplate: 'https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts?suite=android-cuttlefish&components=main&binaryArch=amd64',
-      versioningTemplate: 'deb',
+      // pkgver carries no leading v; the release tags do.
+      extractVersionTemplate: '^v(?<version>.+)$',
+      versioningTemplate: 'semver',
     },
   ],
   packageRules: [
-    // The Cuttlefish packages are versioned and released together upstream, so
-    // splitting them would produce two PRs that each break the other's release.
+    // Both packages track the same upstream release, so without grouping they
+    // would produce two PRs that each break the other's release.
     {
       groupName: 'cuttlefish',
-      matchDatasources: [
-        'deb',
+      matchPackageNames: [
+        'google/android-cuttlefish',
       ],
       commitMessageTopic: 'cuttlefish',
     },

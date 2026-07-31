@@ -15,8 +15,10 @@ license=('Apache-2.0')
 provides=("${_debpkg}")
 conflicts=("${_debpkg}" "${_debpkg}-git")
 
-# Renovate tracks this line against Google's apt repository.
-# renovate: datasource=deb depName=cuttlefish-base
+# Renovate tracks this line against upstream's GitHub releases, which are
+# versioned identically to the .deb. See .github/renovate.json5 for why not the
+# apt repository itself.
+# renovate: datasource=github-releases depName=google/android-cuttlefish
 pkgver=1.55.1
 
 # Artifact Registry appends an opaque hash to every filename, so the URL cannot

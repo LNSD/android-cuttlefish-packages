@@ -124,10 +124,22 @@ source-built package can coexist in the repository later without ambiguity.
 
 ## Updating
 
-[Renovate][rn] watches Google's apt repository through its `deb` datasource and
-opens a pull request when a new version appears.
+[Renovate][rn] watches [upstream's GitHub releases][up] and opens a pull request
+when a new version appears.
 
 [rn]: https://docs.renovatebot.com/
+[up]: https://github.com/google/android-cuttlefish/releases
+
+> [!NOTE]
+> It deliberately does **not** use Renovate's `deb` datasource against the apt
+> repository the packages are downloaded from. That datasource fetches
+> `Packages.gz` unconditionally, with no uncompressed fallback, while Google's
+> Artifact Registry serves only an uncompressed `Packages` index, so every
+> lookup returns `no-result`.
+>
+> Upstream tags each release `vX.Y.Z` and publishes an identically versioned
+> `.deb`, verified across v1.52.1 through v1.55.1, so the release tag is a
+> faithful proxy for the package version.
 
 Two PKGBUILD fields are *not* functions of `pkgver` and so cannot be templated:
 
