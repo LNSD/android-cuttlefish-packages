@@ -64,7 +64,42 @@ indexes exactly the packages published beside it.
 Every release is signed, carries an SBOM, and has a provenance attestation. See
 [Signing, SBOM and provenance](#signing-sbom-and-provenance).
 
-## Why repackaging is sound
+## Packages
+
+| Package | Source | Published here |
+|---|---|---|
+| `cuttlefish-base-bin` | Google's official `.deb` | yes |
+| `cuttlefish-user-bin` | Google's official `.deb` | yes |
+| `cuttlefish-base-git` | upstream git HEAD, built with bazel | no |
+| `cuttlefish-user-git` | upstream git HEAD, Go + web UI | no |
+
+The `-bin` suffix is the Arch convention for repackaged prebuilt binaries.
+Each package `provides` the unsuffixed name and `conflicts` with the other
+variant, so exactly one can be installed.
+
+**Only the `-bin` packages are published** in the pacman repository. The `-git`
+recipes are for building upstream HEAD locally:
+
+```sh
+cd packages/cuttlefish-base-git && makepkg -si
+```
+
+They are not published because a `-git` version changes with every upstream
+commit, so a prebuilt snapshot would be stale the moment it was built, and
+`cuttlefish-base-git` is a large bazel C++ build.
+
+Both `-git` recipes mirror upstream's `debian/rules` minus debhelper: the same
+bazel and Go invocations, then the file mapping from the corresponding
+`debian/*.install` and `*.links` applied directly, with the same Arch path
+relocations as the `-bin` packages.
+
+> [!NOTE]
+> The `-git` recipes are **not built in CI** and have not been built end to end
+> here. `cuttlefish-base-git` needs bazel to compile a large C++ tree, which
+> does not fit a standard GitHub runner. Treat them as a documented starting
+> point rather than a tested build.
+
+## Repackaging
 
 The upstream `.deb` declares 40+ dependencies, six of them `-dev` packages at
 runtime, which normally means linkage against unversioned `.so` symlinks and
@@ -111,41 +146,6 @@ functions, so that line is removed.
 
 `setcap` cannot move into `package()`: `makepkg` builds under `fakeroot`, which
 does not implement the `security.capability` xattr.
-
-## Packages
-
-| Package | Source | Published here |
-|---|---|---|
-| `cuttlefish-base-bin` | Google's official `.deb` | yes |
-| `cuttlefish-user-bin` | Google's official `.deb` | yes |
-| `cuttlefish-base-git` | upstream git HEAD, built with bazel | no |
-| `cuttlefish-user-git` | upstream git HEAD, Go + web UI | no |
-
-The `-bin` suffix is the Arch convention for repackaged prebuilt binaries.
-Each package `provides` the unsuffixed name and `conflicts` with the other
-variant, so exactly one can be installed.
-
-**Only the `-bin` packages are published** in the pacman repository. The `-git`
-recipes are for building upstream HEAD locally:
-
-```sh
-cd packages/cuttlefish-base-git && makepkg -si
-```
-
-They are not published because a `-git` version changes with every upstream
-commit, so a prebuilt snapshot would be stale the moment it was built, and
-`cuttlefish-base-git` is a large bazel C++ build.
-
-Both `-git` recipes mirror upstream's `debian/rules` minus debhelper: the same
-bazel and Go invocations, then the file mapping from the corresponding
-`debian/*.install` and `*.links` applied directly, with the same Arch path
-relocations as the `-bin` packages.
-
-> [!NOTE]
-> The `-git` recipes are **not built in CI** and have not been built end to end
-> here. `cuttlefish-base-git` needs bazel to compile a large C++ tree, which
-> does not fit a standard GitHub runner. Treat them as a documented starting
-> point rather than a tested build.
 
 ## Updating
 
