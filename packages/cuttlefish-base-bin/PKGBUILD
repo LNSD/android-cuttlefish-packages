@@ -100,4 +100,10 @@ package() {
   # Replaces the .deb's `addgroup --system cvdnetwork`.
   install -Dm644 "${pkgname}.sysusers" \
     "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+
+  # Debian packaging metadata. The copyright file moves to where Arch keeps
+  # licences; the changelog and the lintian overrides have no meaning here.
+  install -Dm644 "${pkgdir}/usr/share/doc/${_debpkg}/copyright" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/copyright"
+  rm -rf "${pkgdir:?}/usr/share/doc" "${pkgdir:?}/usr/share/lintian"
 }

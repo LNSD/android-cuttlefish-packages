@@ -62,4 +62,10 @@ package() {
   # Replaces the .deb's `adduser --system ... --ingroup cvdnetwork _cutf-operator`.
   install -Dm644 "${pkgname}.sysusers" \
     "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+
+  # As in cuttlefish-base-bin: Arch keeps licences elsewhere, and Debian's
+  # changelog and lintian overrides have no meaning here.
+  install -Dm644 "${pkgdir}/usr/share/doc/${_debpkg}/copyright" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/copyright"
+  rm -rf "${pkgdir:?}/usr/share/doc" "${pkgdir:?}/usr/share/lintian"
 }

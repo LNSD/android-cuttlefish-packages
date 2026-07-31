@@ -4,8 +4,6 @@ name: Renovate fixup
 # checksum -- neither is a function of the version, and postUpgradeTasks is
 # self-hosted-only. This completes the bump on Renovate's own branch, so the
 # pull request it opened becomes mergeable.
-#
-# See the note at the bottom of renovate.json5.
 
 on:
   pull_request:

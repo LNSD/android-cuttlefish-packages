@@ -143,6 +143,20 @@ scripts/resolve-deb.py        resolve _debhash + checksum for the current pkgver
 
 ## Licence
 
-The packaging in this repository is MIT. The packaged software is Google's,
-under Apache-2.0; this repository redistributes it unmodified and is not
-affiliated with or endorsed by Google.
+The packaging in this repository — the PKGBUILDs, scripts and workflows — is
+dual-licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+The **packaged software is Google's**, under Apache-2.0. This repository
+redistributes the official binaries unmodified except for the path relocations
+described above, and is not affiliated with or endorsed by Google.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 licence, shall be
+dual-licensed as above, without any additional terms or conditions.
