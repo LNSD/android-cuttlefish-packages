@@ -21,7 +21,10 @@ DIST="${ROOT}/dist"
 rm -rf "${DIST}"
 mkdir -p "${DIST}"
 
-for pkgbuild in "${ROOT}"/packages/*/PKGBUILD; do
+# Only the -bin packages are published. The -git recipes build upstream HEAD
+# from source, which is a large bazel build with a version that changes on
+# every commit; those are for users to build locally with makepkg.
+for pkgbuild in "${ROOT}"/packages/*-bin/PKGBUILD; do
   pkgdir="$(dirname "${pkgbuild}")"
   echo "==> building $(basename "${pkgdir}")"
   # --nodeps: the dependencies are Arch runtime packages, not needed in order

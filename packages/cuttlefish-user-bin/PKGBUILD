@@ -6,7 +6,7 @@
 _debpkg=cuttlefish-user
 pkgname="${_debpkg}-bin"
 pkgrel=1
-pkgdesc="Cuttlefish web operator — browser access to running virtual devices"
+pkgdesc="Cuttlefish web operator, browser access to running virtual devices"
 arch=('x86_64')
 url="https://github.com/google/android-cuttlefish"
 license=('Apache-2.0')

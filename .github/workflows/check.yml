@@ -29,12 +29,15 @@ jobs:
       - name: namcap (PKGBUILD)
         run: namcap packages/*/PKGBUILD
 
-      # PKGBUILDs are bash. SC2034/SC2154 are inherent to the format: makepkg
-      # both consumes the variables a PKGBUILD sets and provides srcdir/pkgdir.
-      # SC2148 fires because a PKGBUILD has no shebang, by design.
+      # PKGBUILDs are bash, with exclusions inherent to the format:
+      #   SC2034/SC2154  makepkg both consumes the variables a PKGBUILD sets
+      #                  and provides srcdir/pkgdir.
+      #   SC2148         a PKGBUILD has no shebang, by design.
+      #   SC2164         bare `cd` is the Arch convention; makepkg runs under
+      #                  set -e, so a failed cd already aborts the build.
       - name: shellcheck
         run: |
-          shellcheck --shell=bash --exclude=SC2034,SC2154,SC2148 \
+          shellcheck --shell=bash --exclude=SC2034,SC2154,SC2148,SC2164 \
             packages/*/PKGBUILD packages/*/*.install
           shellcheck scripts/*.sh
 

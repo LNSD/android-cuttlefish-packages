@@ -69,7 +69,9 @@ def main():
     index = fetch_index()
     stale = []
 
-    for pkgbuild in sorted(PACKAGES_DIR.glob("*/PKGBUILD")):
+    # Only the -bin packages pin a .deb. The -git recipes build from source and
+    # carry a git-describe version that is not in any apt index.
+    for pkgbuild in sorted(PACKAGES_DIR.glob("*-bin/PKGBUILD")):
         text = pkgbuild.read_text()
         debpkg = pkgbuild_field(text, "_debpkg")
         pkgver = pkgbuild_field(text, "pkgver")
