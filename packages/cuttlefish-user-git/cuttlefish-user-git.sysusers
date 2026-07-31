@@ -1,4 +1,0 @@
-# The operator daemon runs unprivileged as this user, in the cvdnetwork group
-# created by cuttlefish-base. Mirrors upstream's postinst `adduser --system`.
-u _cutf-operator - "Cuttlefish operator" /var/empty
-m _cutf-operator cvdnetwork

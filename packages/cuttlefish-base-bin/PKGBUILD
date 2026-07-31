@@ -13,7 +13,7 @@ url="https://github.com/google/android-cuttlefish"
 license=('Apache-2.0')
 
 provides=("${_debpkg}")
-conflicts=("${_debpkg}" "${_debpkg}-git")
+conflicts=("${_debpkg}")
 
 # Renovate tracks this line against upstream's GitHub releases, which are
 # versioned identically to the .deb. See .github/renovate.json5 for why not the

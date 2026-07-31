@@ -12,7 +12,7 @@ url="https://github.com/google/android-cuttlefish"
 license=('Apache-2.0')
 
 provides=("${_debpkg}")
-conflicts=("${_debpkg}" "${_debpkg}-git")
+conflicts=("${_debpkg}")
 
 # renovate: datasource=github-releases depName=google/android-cuttlefish
 pkgver=1.55.1
