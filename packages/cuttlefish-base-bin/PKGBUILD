@@ -33,7 +33,11 @@ depends=(
   'glibc' 'gcc-libs' 'xz' 'opus'
   # Runtime tooling the host scripts invoke, mapped from the .deb's Depends:
   # field (which also lists -dev packages that nothing links against).
-  'bridge-utils' 'curl' 'dnsmasq' 'iproute2' 'iptables' 'jq' 'less'
+  #
+  # Debian's bridge-utils is deliberately absent: it no longer exists in the
+  # Arch repositories, and nothing in the payload calls brctl. The bridges are
+  # made with `ip link add` and the bridge kernel module is modprobe'd directly.
+  'curl' 'dnsmasq' 'iproute2' 'iptables' 'jq' 'less'
   'libarchive' 'libcap' 'net-tools' 'nftables' 'openssl' 'opus-tools'
   'python' 'xdg-utils'
 )
@@ -79,8 +83,19 @@ package() {
   # :? guards against pkgdir being unset, which would make this rm -rf /lib.
   rm -rf "${pkgdir:?}/lib"
 
-  # SysV init script: superseded by cuttlefish-host-resources.service.
-  rm -rf "${pkgdir}/etc/init.d"
+  # The systemd unit is a dh_installinit wrapper: its ExecStart *is* the SysV
+  # script, so the script cannot simply be dropped. Move it out of /etc/init.d
+  # -- not a valid location on Arch -- and repoint the unit at it.
+  local _initdir="${pkgdir}/usr/lib/cuttlefish-common/init"
+  install -Dm755 "${pkgdir}/etc/init.d/cuttlefish-host-resources" -t "${_initdir}"
+  rm -rf "${pkgdir:?}/etc/init.d"
+  sed -i 's#/etc/init.d/#/usr/lib/cuttlefish-common/init/#g' \
+    "${pkgdir}/usr/lib/systemd/system/cuttlefish-host-resources.service"
+
+  # The script sources Debian's LSB helpers, which Arch does not ship. It calls
+  # none of the functions they define, so the line is simply dropped.
+  sed -i '/^\. \/lib\/lsb\/init-functions$/d' \
+    "${_initdir}/cuttlefish-host-resources"
 
   # Replaces the .deb's `addgroup --system cvdnetwork`.
   install -Dm644 "${pkgname}.sysusers" \

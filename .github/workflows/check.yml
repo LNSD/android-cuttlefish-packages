@@ -128,6 +128,30 @@ jobs:
           test ! -e /lib/systemd
           test ! -e /etc/init.d
 
+      - name: The units point at files that exist
+        run: |
+          set -eux
+          # These units are dh_installinit wrappers: ExecStart is the SysV
+          # script, relocated out of /etc/init.d. A unit left pointing at the
+          # old path would install cleanly and then fail to start, so resolve
+          # every ExecStart/ExecStop target and confirm it is executable.
+          for unit in /usr/lib/systemd/system/cuttlefish-*.service; do
+            sed -n 's/^Exec\(Start\|Stop\)=\([^ ]*\).*/\2/p' "${unit}" \
+              | sort -u | while read -r target; do
+                  test -x "${target}" \
+                    || { echo "${unit}: ${target} is missing"; exit 1; }
+                done
+          done
+          # Arch has no LSB init helpers; sourcing them would abort the script.
+          ! grep -rq '/lib/lsb/init-functions' /usr/lib/cuttlefish-common/init/
+
+      - name: The relocated init scripts parse
+        run: |
+          set -eux
+          for script in /usr/lib/cuttlefish-common/init/*; do
+            sh -n "${script}"
+          done
+
       - name: The install scripts did their work
         run: |
           set -eux

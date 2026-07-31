@@ -48,8 +48,16 @@ package() {
   # :? guards against pkgdir being unset, which would make this rm -rf /lib.
   rm -rf "${pkgdir:?}/lib"
 
-  # SysV init script: superseded by cuttlefish-operator.service.
-  rm -rf "${pkgdir}/etc/init.d"
+  # As in cuttlefish-base-bin: the unit's ExecStart is the SysV script, so it
+  # is relocated rather than dropped, and the unit repointed at it.
+  local _initdir="${pkgdir}/usr/lib/cuttlefish-common/init"
+  install -Dm755 "${pkgdir}/etc/init.d/cuttlefish-operator" -t "${_initdir}"
+  rm -rf "${pkgdir:?}/etc/init.d"
+  sed -i 's#/etc/init.d/#/usr/lib/cuttlefish-common/init/#g' \
+    "${pkgdir}/usr/lib/systemd/system/cuttlefish-operator.service"
+
+  # Sourced but never used; Arch has no /lib/lsb/init-functions.
+  sed -i '/^\. \/lib\/lsb\/init-functions$/d' "${_initdir}/cuttlefish-operator"
 
   # Replaces the .deb's `adduser --system ... --ingroup cvdnetwork _cutf-operator`.
   install -Dm644 "${pkgname}.sysusers" \

@@ -50,6 +50,10 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Without this, gh resolves the repository by shelling out to git,
+          # which refuses the checkout as "dubious ownership": the build step
+          # chowns it to the unprivileged build user.
+          GH_REPO: ${{ github.repository }}
         run: |
           tag="v${{ steps.version.outputs.version }}"
 
