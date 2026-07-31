@@ -97,28 +97,58 @@ jobs:
           # chowns it to the unprivileged build user.
           GH_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           tag="v${{ steps.version.outputs.version }}"
+          repo="${{ github.repository }}"
 
-          # Re-running for the same version replaces the assets rather than
-          # failing, so a rebuild is never blocked by a half-finished release.
-          if gh release view "${tag}" >/dev/null 2>&1; then
-            gh release upload "${tag}" dist/* --clobber
-          else
-            gh release create "${tag}" dist/* \
-              --title "Cuttlefish ${{ steps.version.outputs.version }}" \
-              --notes "Arch packages repackaged from Google's official \
-          Cuttlefish .deb ${{ steps.version.outputs.version }}.
+          # Written to a file and applied on both paths below. Generating the
+          # notes once is what keeps them from drifting: a re-run that only
+          # uploaded assets used to leave stale notes behind for ever.
+          cat > notes.md <<EOF
+          Arch packages repackaged from Google's official Cuttlefish .deb
+          ${{ steps.version.outputs.version }}.
+
+          Packages and the database are GPG-signed, carry an SBOM, and have a
+          SLSA provenance attestation.
+
+          ## Install
+
+          Trust the signing key once:
+
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/${repo}/main/keys/lnsdev.asc \\
+            | sudo pacman-key --add -
+          sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
+          \`\`\`
 
           Add to \`/etc/pacman.conf\`:
 
           \`\`\`ini
           [cuttlefish]
-          Server = https://github.com/${{ github.repository }}/releases/latest/download
+          SigLevel = Required DatabaseOptional
+          Server = https://github.com/${repo}/releases/latest/download
           \`\`\`
 
-          Verify provenance with:
+          \`\`\`sh
+          sudo pacman -Sy cuttlefish-base-bin cuttlefish-user-bin
+          \`\`\`
+
+          ## Verify
 
           \`\`\`sh
-          gh attestation verify <package>.pkg.tar.zst --repo ${{ github.repository }}
-          \`\`\`"
+          gh attestation verify <package>.pkg.tar.zst --repo ${repo}
+          \`\`\`
+          EOF
+
+          # Re-running for the same version replaces the assets rather than
+          # failing, so a rebuild is never blocked by a half-finished release.
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" dist/* --clobber
+            gh release edit "${tag}" \
+              --title "Cuttlefish ${{ steps.version.outputs.version }}" \
+              --notes-file notes.md
+          else
+            gh release create "${tag}" dist/* \
+              --title "Cuttlefish ${{ steps.version.outputs.version }}" \
+              --notes-file notes.md
           fi
