@@ -3,7 +3,7 @@
 # Build every package and assemble a pacman repository database from the
 # results. Used by .github/workflows/release.yml and runnable locally.
 #
-#   ./scripts/build.sh          -> dist/ containing packages + cuttlefish.db
+#   ./scripts/build.sh          -> dist/ containing packages + android-cuttlefish.db
 #
 # Signing is deliberately not done here: makepkg refuses to run as root, while
 # in CI the GPG key is imported into root's keyring. Build unsigned as an
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-REPO_NAME=cuttlefish
+REPO_NAME=android-cuttlefish
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="${ROOT}/dist"
 

@@ -11,7 +11,7 @@ official `.deb`s so `pacman` and `pamac` can install and update them normally.
 Add to `/etc/pacman.conf`:
 
 ```ini
-[cuttlefish]
+[android-cuttlefish]
 SigLevel = Required TrustAll
 Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
 ```
@@ -58,7 +58,7 @@ SigLevel = Required DatabaseOptional
 </details>
 
 `releases/latest/download` always resolves to the newest release, so the URL
-never needs updating. Each release is self-contained: its `cuttlefish.db`
+never needs updating. Each release is self-contained: its `android-cuttlefish.db`
 indexes exactly the packages published beside it.
 
 Every release is signed, carries an SBOM, and has a provenance attestation. See
@@ -193,7 +193,7 @@ Step 2 pushes with a PAT (`RENOVATE_FIXUP_TOKEN`), because pushes made with
 ## Building locally
 
 ```sh
-./scripts/build.sh          # -> dist/ with packages and cuttlefish.db
+./scripts/build.sh          # -> dist/ with packages and android-cuttlefish.db
 ```
 
 Needs `base-devel`. `makepkg` must not run as root.
@@ -228,7 +228,7 @@ recommended way to obtain it, as shown under [Install](#install). It is also on
 > against it fails.
 
 ```ini
-[cuttlefish]
+[android-cuttlefish]
 SigLevel = Required DatabaseOptional
 Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
 ```
@@ -250,7 +250,7 @@ This attests that the artifact was built by this workflow, from this commit. It
 says **nothing** about Google's binaries inside it. That link is the `.deb`
 checksum, verified against the upstream index by `resolve-deb.py`.
 
-**An SBOM** (`cuttlefish.spdx.json`) is generated with syft and attested with
+**An SBOM** (`android-cuttlefish.spdx.json`) is generated with syft and attested with
 `actions/attest-sbom`.
 
 > [!NOTE]

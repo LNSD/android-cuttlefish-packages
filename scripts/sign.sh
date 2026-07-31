@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-REPO_NAME=cuttlefish
+REPO_NAME=android-cuttlefish
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="${ROOT}/dist"
 

@@ -66,7 +66,7 @@ jobs:
       # operator). The C++ components are statically linked, so their contents
       # are not visible to any scanner -- see README.
       - name: Generate SBOM
-        run: syft scan dir:dist --output spdx-json=dist/cuttlefish.spdx.json
+        run: syft scan dir:dist --output spdx-json=dist/android-cuttlefish.spdx.json
 
       # Attests that these artifacts were built by this workflow, from this
       # commit. It says nothing about Google's binaries inside them; that link
@@ -80,7 +80,7 @@ jobs:
         uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
         with:
           subject-path: dist/*.pkg.tar.zst
-          sbom-path: dist/cuttlefish.spdx.json
+          sbom-path: dist/android-cuttlefish.spdx.json
 
       - name: Derive the release version
         id: version
@@ -116,7 +116,7 @@ jobs:
           Add to \`/etc/pacman.conf\`:
 
           \`\`\`ini
-          [cuttlefish]
+          [android-cuttlefish]
           SigLevel = Required TrustAll
           Server = https://github.com/${repo}/releases/latest/download
           \`\`\`
