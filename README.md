@@ -190,14 +190,6 @@ self-hosted-only admin option. The flow is:
 Step 2 pushes with a PAT (`RENOVATE_FIXUP_TOKEN`), because pushes made with
 `GITHUB_TOKEN` do not trigger workflows, so step 3 would otherwise never re-run.
 
-## Building locally
-
-```sh
-./scripts/build.sh          # -> dist/ with packages and android-cuttlefish.db
-```
-
-Needs `base-devel`. `makepkg` must not run as root.
-
 ## Signing, SBOM and provenance
 
 All three are produced automatically by `release.yml`. Nothing is signed or
