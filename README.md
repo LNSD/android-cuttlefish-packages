@@ -125,21 +125,58 @@ Step 2 pushes with a PAT (`RENOVATE_FIXUP_TOKEN`), because pushes made with
 
 Needs `base-devel`. `makepkg` must not run as root.
 
-## Signing
+## Signing, SBOM and provenance
 
-Releases are currently unsigned, hence `SigLevel = Optional TrustAll`. To sign,
-set `PACKAGER` and `GPGKEY`, pass `--sign` to `makepkg` and `repo-add`, publish
-the `.sig` files alongside, and have users trust the key once:
+All three are produced automatically by `release.yml`. Nothing is signed or
+attested by hand.
+
+**Packages and the database are GPG-signed** with a signing-only subkey of
+`Lorenzo Delgado <lnsdev@proton.me>`, held as a repository secret. `sign.sh`
+detach-signs each package and rebuilds the database with `--include-sigs`, so
+pacman knows to expect a signature.
+
+Signing is separate from `build.sh` because the two cannot share a user:
+`makepkg` refuses to run as root, while CI imports the key into root's keyring.
+
+To verify signatures, trust the key once, then tighten `SigLevel`:
 
 ```sh
-sudo pacman-key --recv-keys <fingerprint>
-sudo pacman-key --lsign-key <fingerprint>
+sudo pacman-key --recv-keys 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
+sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
+```
+
+```ini
+[cuttlefish]
+SigLevel = Required DatabaseOptional
+Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
 ```
 
 The bootstrap is unavoidably circular — signature checking cannot validate the
 key that enables it. devkitPro solves this with a `devkitpro-keyring` package
 installed out of band; the manual `pacman-key` route above is the lighter
 equivalent.
+
+**Provenance** is attested with `actions/attest-build-provenance`, using
+Sigstore keyless signing — no key, no secret:
+
+```sh
+gh attestation verify cuttlefish-base-bin-*.pkg.tar.zst \
+  --repo LNSD/android-cuttlefish-packages
+```
+
+This attests that the artifact was built by this workflow, from this commit. It
+says **nothing** about Google's binaries inside it — that link is the `.deb`
+checksum, verified against the upstream index by `resolve-deb.py`.
+
+**An SBOM** (`cuttlefish.spdx.json`) is generated with syft and attested with
+`actions/attest-sbom`.
+
+> [!NOTE]
+> The SBOM is necessarily partial. syft reads Go module metadata out of the Go
+> components (`host_orchestrator`, `operator`), which produces a real dependency
+> list. The C++ components (`cvd`, `webRTC`, …) are statically linked, so what
+> was compiled into them is invisible to any scanner. A complete SBOM could only
+> come from Google.
 
 ## Licence
 

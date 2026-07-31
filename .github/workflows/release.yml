@@ -5,6 +5,10 @@ name: Release
 # exactly the packages uploaded alongside it, so
 # https://github.com/OWNER/REPO/releases/latest/download is a valid, stable
 # pacman Server URL that always resolves to the newest release.
+#
+# Everything below is automated at release time: signing, SBOM generation and
+# provenance attestation all happen in this job. The only manual prerequisites
+# are the two GPG secrets, set once.
 
 on:
   push:
@@ -17,16 +21,18 @@ on:
 
 permissions:
   contents: write
+  # Both required by the attestation actions: id-token to obtain the Sigstore
+  # OIDC token, attestations to write into the repository's attestation store.
+  id-token: write
+  attestations: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Install tooling
-        run: pacman -Syu --noconfirm git github-cli pacman-contrib python sudo
+        run: pacman -Syu --noconfirm git github-cli pacman-contrib python sudo syft
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -37,8 +43,41 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
           chown -R builder:builder .
 
-      - name: Build packages and repository database
+      - name: Build
         run: sudo --user=builder ./scripts/build.sh
+
+      - name: Import the signing subkey
+        id: gpg
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      # Runs as root, which owns the keyring the step above imported into.
+      - name: Sign the packages and the database
+        env:
+          SIGNING_KEY: ${{ steps.gpg.outputs.keyid }}
+        run: ./scripts/sign.sh
+
+      # syft reads Go module metadata out of the Go binaries (host_orchestrator,
+      # operator). The C++ components are statically linked, so their contents
+      # are not visible to any scanner -- see README.
+      - name: Generate SBOM
+        run: syft scan dir:dist --output spdx-json=dist/cuttlefish.spdx.json
+
+      # Attests that these artifacts were built by this workflow, from this
+      # commit. It says nothing about Google's binaries inside them; that link
+      # is the .deb sha256 verified against the upstream index by resolve-deb.py.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*.pkg.tar.zst
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/*.pkg.tar.zst
+          sbom-path: dist/cuttlefish.spdx.json
 
       - name: Derive the release version
         id: version
@@ -71,7 +110,12 @@ jobs:
 
           \`\`\`ini
           [cuttlefish]
-          SigLevel = Optional TrustAll
           Server = https://github.com/${{ github.repository }}/releases/latest/download
+          \`\`\`
+
+          Verify provenance with:
+
+          \`\`\`sh
+          gh attestation verify <package>.pkg.tar.zst --repo ${{ github.repository }}
           \`\`\`"
           fi
