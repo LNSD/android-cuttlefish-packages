@@ -1,0 +1,3 @@
+# Cuttlefish grants access to its network devices through this group.
+# Upstream's postinst creates it with `addgroup --system cvdnetwork`.
+g cvdnetwork -

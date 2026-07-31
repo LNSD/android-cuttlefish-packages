@@ -1,0 +1,57 @@
+# Maintainer: Lorenzo Delgado <lnsdev@proton.me>
+#
+# Repackages Google's official cuttlefish-user .deb for Arch. See the sibling
+# cuttlefish-base-bin recipe for the approach and its justification.
+
+_debpkg=cuttlefish-user
+pkgname="${_debpkg}-bin"
+pkgrel=1
+pkgdesc="Cuttlefish web operator — browser access to running virtual devices"
+arch=('x86_64')
+url="https://github.com/google/android-cuttlefish"
+license=('Apache-2.0')
+
+provides=("${_debpkg}")
+conflicts=("${_debpkg}" "${_debpkg}-git")
+
+# renovate: datasource=deb depName=cuttlefish-user
+pkgver=1.55.1
+
+_debhash='635348e376496018d8e1d74f67355b54'
+_deb="${_debpkg}_${pkgver}_amd64_${_debhash}.deb"
+
+depends=('cuttlefish-base' 'glibc' 'openssl')
+
+install="${pkgname}.install"
+backup=('etc/default/cuttlefish-operator')
+options=('!strip' '!debug' '!lto')
+
+source=(
+  "${_deb}::https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts/pool/android-cuttlefish/${_deb}"
+  "${pkgname}.sysusers"
+)
+sha256sums=(
+  '9945688bbd2106868587f5ed021f50f2d34f0bbf90e4588b37e934e1f1fad927'
+  'SKIP'
+)
+
+noextract=("${_deb}")
+
+package() {
+  # makepkg has already placed us in ${srcdir}.
+
+  bsdtar -xf "${_deb}" data.tar.xz
+  bsdtar -xf data.tar.xz -C "${pkgdir}"
+
+  install -d "${pkgdir}/usr/lib/systemd/system"
+  mv "${pkgdir}/lib/systemd/system/"* "${pkgdir}/usr/lib/systemd/system/"
+  # :? guards against pkgdir being unset, which would make this rm -rf /lib.
+  rm -rf "${pkgdir:?}/lib"
+
+  # SysV init script: superseded by cuttlefish-operator.service.
+  rm -rf "${pkgdir}/etc/init.d"
+
+  # Replaces the .deb's `adduser --system ... --ingroup cvdnetwork _cutf-operator`.
+  install -Dm644 "${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+}

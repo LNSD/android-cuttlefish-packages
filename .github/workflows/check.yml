@@ -1,0 +1,55 @@
+name: Check
+
+# Static checks on every pull request. The expensive part -- actually building
+# the packages -- happens in release.yml after merge.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install tooling
+        run: pacman -Syu --noconfirm git namcap python shellcheck shfmt
+
+      - uses: actions/checkout@v4
+
+      # Guards the two PKGBUILD fields that are not functions of pkgver, so a
+      # hand-edited or partially-applied bump fails before it is merged.
+      - name: _debhash and sha256sums match the upstream index
+        run: python3 scripts/resolve-deb.py --check
+
+      # namcap is the Arch package linter. On a PKGBUILD it catches missing or
+      # redundant dependencies, bad field usage and packaging-convention errors.
+      - name: namcap
+        run: namcap packages/*/PKGBUILD
+
+      # PKGBUILDs are bash. SC2034/SC2154 are inherent to the format: makepkg
+      # both consumes the variables a PKGBUILD sets and provides srcdir/pkgdir.
+      # SC2148 fires because a PKGBUILD has no shebang, by design.
+      - name: shellcheck
+        run: |
+          shellcheck --shell=bash --exclude=SC2034,SC2154,SC2148 \
+            packages/*/PKGBUILD packages/*/*.install
+          shellcheck scripts/*.sh
+
+      - name: shfmt
+        run: shfmt --diff --indent 2 --case-indent packages/*/PKGBUILD scripts/*.sh
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check --output-format=github
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check

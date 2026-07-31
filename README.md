@@ -1,0 +1,142 @@
+# Cuttlefish packages for Arch Linux
+
+An Arch/Manjaro pacman repository for [Cuttlefish][cf], Android's configurable
+virtual device. Upstream ships Debian packages only; these repackage the
+official `.deb`s so `pacman` and `pamac` can install and update them normally.
+
+[cf]: https://github.com/google/android-cuttlefish
+
+## Install
+
+Add to `/etc/pacman.conf`:
+
+```ini
+[cuttlefish]
+SigLevel = Optional TrustAll
+Server = https://github.com/LNSD/android-cuttlefish-packages/releases/latest/download
+```
+
+Then:
+
+```sh
+sudo pacman -Sy cuttlefish-base-bin cuttlefish-user-bin
+sudo usermod -aG cvdnetwork "$USER"      # log out and back in
+sudo systemctl enable --now cuttlefish-host-resources.service
+```
+
+`releases/latest/download` always resolves to the newest release, so the URL
+never needs updating. Each release is self-contained: its `cuttlefish.db`
+indexes exactly the packages published beside it.
+
+> `SigLevel = Optional TrustAll` accepts unsigned packages. Signing would need a
+> key distributed out of band — see [Signing](#signing).
+
+## Why repackaging is sound
+
+The upstream `.deb` declares 40+ dependencies, six of them `-dev` packages at
+runtime, which normally means linkage against unversioned `.so` symlinks and
+makes cross-distribution repackaging fragile.
+
+It is not the case here. `DT_NEEDED` across **all 80 shipped ELF objects**
+resolves to only:
+
+| soname | Arch package |
+|---|---|
+| `libc.so.6`, `libm.so.6`, `ld-linux-x86-64.so.2` | `glibc` |
+| `libgcc_s.so.1` | `gcc-libs` |
+| `liblzma.so.5` | `xz` |
+| `libopus.so.0` | `opus` |
+
+Everything else is statically linked, including the bundled software Vulkan
+renderer (`libvk_swiftshader.so`). The rest of the Debian `Depends:` field is
+runtime *tooling* — `dnsmasq`, `bridge-utils`, `iptables`, `nftables`, `jq`,
+`python3` — which maps directly onto Arch packages. Debian's `libc6 (>= 2.36)`
+floor is satisfied by any current Arch, glibc symbol versioning being
+forward-compatible.
+
+### What the packaging changes
+
+| Upstream (Debian) | Here (Arch) |
+|---|---|
+| `/lib/systemd/system/` | `/usr/lib/systemd/system/` |
+| `/lib/udev/rules.d/` | `/usr/lib/udev/rules.d/` |
+| `/etc/init.d/*` (SysV) | dropped — the systemd units supersede it |
+| `postinst`: `addgroup --system cvdnetwork` | `sysusers.d` |
+| `postinst`: `adduser --system _cutf-operator` | `sysusers.d` |
+| `postinst`: `setcap` on two binaries | `.install` `post_install()` |
+| `postinst`: `modprobe` loop | `modules-load.d`, which Arch reads natively |
+
+`setcap` cannot move into `package()`: `makepkg` builds under `fakeroot`, which
+does not implement the `security.capability` xattr.
+
+## Naming
+
+Packages are suffixed `-bin` per Arch convention, because they repackage
+prebuilt binaries rather than building from source. They `provide` the
+unsuffixed name and `conflict` with both it and a `-git` variant, so a
+source-built package can coexist in the repository later without ambiguity.
+
+## Updating
+
+[Renovate][rn] watches Google's apt repository through its `deb` datasource and
+opens a pull request when a new version appears.
+
+[rn]: https://docs.renovatebot.com/
+
+Two PKGBUILD fields are *not* functions of `pkgver` and so cannot be templated:
+
+- `_debhash` — Artifact Registry appends an opaque hash to every filename, so
+  the download URL cannot be derived from the version.
+- `sha256sums[0]` — the checksum of the `.deb`.
+
+`scripts/resolve-deb.py` resolves both from the upstream package index and
+verifies the checksum against the actual downloaded bytes. Renovate invokes it
+through `postUpgradeTasks`; `check.yml` re-runs it with `--check` on every pull
+request, so a hand-edited bump that skipped it fails before merge.
+
+> Renovate runs **self-hosted** (`.github/workflows/renovate.yml`), not as the
+> Mend GitHub App, because `postUpgradeTasks.commands` are validated against
+> `allowedCommands` — a self-hosted-only admin option.
+
+Merging a bump to `main` triggers `release.yml`, which rebuilds everything and
+publishes a new release.
+
+## Building locally
+
+```sh
+./scripts/build.sh          # -> dist/ with packages and cuttlefish.db
+```
+
+Needs `base-devel`. `makepkg` must not run as root.
+
+## Signing
+
+Releases are currently unsigned, hence `SigLevel = Optional TrustAll`. To sign,
+set `PACKAGER` and `GPGKEY`, pass `--sign` to `makepkg` and `repo-add`, publish
+the `.sig` files alongside, and have users trust the key once:
+
+```sh
+sudo pacman-key --recv-keys <fingerprint>
+sudo pacman-key --lsign-key <fingerprint>
+```
+
+The bootstrap is unavoidably circular — signature checking cannot validate the
+key that enables it. devkitPro solves this with a `devkitpro-keyring` package
+installed out of band; the manual `pacman-key` route above is the lighter
+equivalent.
+
+## Layout
+
+```
+packages/<name>/PKGBUILD      one directory per package
+scripts/build.sh              build all, assemble the repository database
+scripts/resolve-deb.py        resolve _debhash + checksum for the current pkgver
+renovate.json                 upstream tracking
+.github/workflows/            check, renovate, release
+```
+
+## Licence
+
+The packaging in this repository is MIT. The packaged software is Google's,
+under Apache-2.0; this repository redistributes it unmodified and is not
+affiliated with or endorsed by Google.

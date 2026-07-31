@@ -1,0 +1,88 @@
+# Maintainer: Lorenzo Delgado <lnsdev@proton.me>
+#
+# Repackages Google's official cuttlefish-base .deb for Arch. Nothing is
+# compiled: the upstream binaries are extracted and relocated to Arch paths.
+# See ../../README.md for why that is sound.
+
+_debpkg=cuttlefish-base
+pkgname="${_debpkg}-bin"
+pkgrel=1
+pkgdesc="Cuttlefish Android Virtual Device host package (repackaged from the upstream .deb)"
+arch=('x86_64')
+url="https://github.com/google/android-cuttlefish"
+license=('Apache-2.0')
+
+provides=("${_debpkg}")
+conflicts=("${_debpkg}" "${_debpkg}-git")
+
+# Renovate tracks this line against Google's apt repository.
+# renovate: datasource=deb depName=cuttlefish-base
+pkgver=1.55.1
+
+# Artifact Registry appends an opaque hash to every filename, so the URL cannot
+# be derived from the version. scripts/resolve-deb.py fills these two in after
+# Renovate bumps pkgver; see ../../README.md.
+_debhash='eb565ecb4a0619d4d97fc0569fbc361d'
+_deb="${_debpkg}_${pkgver}_amd64_${_debhash}.deb"
+
+depends=(
+  # Dynamic linkage. This is the complete set: DT_NEEDED across all 80 shipped
+  # ELF objects resolves to only libc/libm/ld-linux, libgcc_s, liblzma, libopus.
+  # Everything else upstream links statically, which is what makes repackaging
+  # across distributions safe here.
+  'glibc' 'gcc-libs' 'xz' 'opus'
+  # Runtime tooling the host scripts invoke, mapped from the .deb's Depends:
+  # field (which also lists -dev packages that nothing links against).
+  'bridge-utils' 'curl' 'dnsmasq' 'iproute2' 'iptables' 'jq' 'less'
+  'libarchive' 'libcap' 'net-tools' 'nftables' 'openssl' 'opus-tools'
+  'python' 'xdg-utils'
+)
+optdepends=('grub: EFI bootloader images for the guest')
+
+install="${pkgname}.install"
+
+# /etc files the .deb marks as conffiles; pacman must not clobber local edits.
+backup=(
+  'etc/NetworkManager/conf.d/99-cuttlefish.conf'
+  'etc/default/cuttlefish-host-resources'
+  'etc/modules-load.d/cuttlefish-common.conf'
+  'etc/security/limits.d/1_cuttlefish.conf'
+)
+
+# The payload is prebuilt, mostly-static binaries. Stripping them or generating
+# debug packages is at best pointless and at worst breaks them.
+options=('!strip' '!debug' '!lto')
+
+source=(
+  "${_deb}::https://us-apt.pkg.dev/projects/android-cuttlefish-artifacts/pool/android-cuttlefish/${_deb}"
+  "${pkgname}.sysusers"
+)
+sha256sums=(
+  '0a15c00abe2630318ed1a9f61814d7b721c3192a93e0a7570244d6d5e9a0164c'
+  'SKIP'
+)
+
+# A .deb is an ar archive; makepkg would try to unpack it as a source tarball.
+noextract=("${_deb}")
+
+package() {
+  # makepkg has already placed us in ${srcdir}.
+
+  # A .deb holds: debian-binary, control.tar.*, data.tar.*. Take the payload.
+  bsdtar -xf "${_deb}" data.tar.xz
+  bsdtar -xf data.tar.xz -C "${pkgdir}"
+
+  # Debian ships units and udev rules under /lib; Arch keeps them in /usr/lib.
+  install -d "${pkgdir}/usr/lib/systemd/system" "${pkgdir}/usr/lib/udev/rules.d"
+  mv "${pkgdir}/lib/systemd/system/"* "${pkgdir}/usr/lib/systemd/system/"
+  mv "${pkgdir}/lib/udev/rules.d/"* "${pkgdir}/usr/lib/udev/rules.d/"
+  # :? guards against pkgdir being unset, which would make this rm -rf /lib.
+  rm -rf "${pkgdir:?}/lib"
+
+  # SysV init script: superseded by cuttlefish-host-resources.service.
+  rm -rf "${pkgdir}/etc/init.d"
+
+  # Replaces the .deb's `addgroup --system cvdnetwork`.
+  install -Dm644 "${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+}

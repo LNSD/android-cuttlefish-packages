@@ -1,0 +1,38 @@
+name: Renovate
+
+# Renovate runs self-hosted rather than as the Mend GitHub App because
+# renovate.json uses postUpgradeTasks, whose `commands` are validated against
+# `allowedCommands` -- a self-hosted-only admin option. See README.md.
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: Renovate log level
+        type: choice
+        default: info
+        options: [info, debug]
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: renovatebot/github-action@v40
+        with:
+          # A PAT (not GITHUB_TOKEN): pull requests opened with GITHUB_TOKEN do
+          # not trigger other workflows, which would stop release.yml running.
+          token: ${{ secrets.RENOVATE_TOKEN }}
+          configurationFile: renovate.json
+        env:
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_PLATFORM: github
+          # Permits the single postUpgradeTasks command in renovate.json.
+          RENOVATE_ALLOWED_COMMANDS: '["python3 scripts/resolve-deb.py"]'
