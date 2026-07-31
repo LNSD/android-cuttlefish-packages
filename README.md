@@ -17,6 +17,33 @@ curl -fsSL https://raw.githubusercontent.com/LNSD/android-cuttlefish-packages/ma
 sudo pacman-key --lsign-key 82E8BBCA46EBA55621A7C12548A5470E1E3E8BA7
 ```
 
+<details>
+<summary>Or skip this and let pacman fetch the key on first install</summary>
+
+The key is also published on `keyserver.ubuntu.com`, which is pacman's default
+keyserver, so pacman can offer to import it during the first install:
+
+```
+:: Import PGP key 6B6480C55419E90D, "Lorenzo Delgado <lnsdev@proton.me>"? [Y/n]
+```
+
+For that to be sufficient on its own, use `TrustAll` in the stanza below instead
+of the default:
+
+```ini
+SigLevel = Required TrustAll
+```
+
+**Importing is not trusting.** Under pacman's default `TrustedOnly`, a key that
+was merely imported still has unknown trust and the install fails anyway;
+`TrustAll` is what makes the imported key acceptable.
+
+The trade-off is real: `TrustAll` tells pacman to accept a signature from *any*
+key in its keyring for this repository, not just this one. `--lsign-key` pins
+trust to this key specifically, which is why it is the documented default.
+
+</details>
+
 Add to `/etc/pacman.conf`:
 
 ```ini
