@@ -97,10 +97,15 @@ jobs:
           tag="v${{ steps.version.outputs.version }}"
           repo="${{ github.repository }}"
 
-          # Written to a file and applied on both paths below. Generating the
-          # notes once is what keeps them from drifting: a re-run that only
-          # uploaded assets used to leave stale notes behind for ever.
-          #
+          # Releases in this repository are immutable: once one is published,
+          # its assets and its tag are locked. A version is therefore published
+          # exactly once, and a re-run for a version that already exists has
+          # nothing it is allowed to do.
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "::notice::${tag} is already published, and releases are immutable, so its assets cannot be replaced. Bump pkgrel to publish new artifacts."
+            exit 0
+          fi
+
           # Each paragraph is one long line on purpose. GitHub renders release
           # notes with hard line breaks, so a wrapped paragraph is displayed
           # with the wrap points in it. Do not reflow these to 72 columns.
@@ -132,15 +137,11 @@ jobs:
           \`\`\`
           EOF
 
-          # Re-running for the same version replaces the assets rather than
-          # failing, so a rebuild is never blocked by a half-finished release.
-          if gh release view "${tag}" >/dev/null 2>&1; then
-            gh release upload "${tag}" dist/* --clobber
-            gh release edit "${tag}" \
-              --title "Cuttlefish ${{ steps.version.outputs.version }}" \
-              --notes-file notes.md
-          else
-            gh release create "${tag}" dist/* \
-              --title "Cuttlefish ${{ steps.version.outputs.version }}" \
-              --notes-file notes.md
-          fi
+          # Published as a draft first, then flipped live. Immutability locks
+          # the assets at the moment of publication, so every asset has to be
+          # attached before that, not after.
+          gh release create "${tag}" dist/* \
+            --draft \
+            --title "Cuttlefish ${{ steps.version.outputs.version }}" \
+            --notes-file notes.md
+          gh release edit "${tag}" --draft=false
