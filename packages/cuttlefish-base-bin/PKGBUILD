@@ -19,7 +19,7 @@ conflicts=("${_debpkg}")
 # versioned identically to the .deb. See .github/renovate.json5 for why not the
 # apt repository itself.
 # renovate: datasource=github-releases depName=google/android-cuttlefish
-pkgver=1.55.1
+pkgver=1.55.2
 
 # Artifact Registry appends an opaque hash to every filename, so the URL cannot
 # be derived from the version. scripts/resolve-deb.py fills these two in after

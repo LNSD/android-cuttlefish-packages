@@ -15,7 +15,7 @@ provides=("${_debpkg}")
 conflicts=("${_debpkg}")
 
 # renovate: datasource=github-releases depName=google/android-cuttlefish
-pkgver=1.55.1
+pkgver=1.55.2
 
 _debhash='635348e376496018d8e1d74f67355b54'
 _deb="${_debpkg}_${pkgver}_amd64_${_debhash}.deb"
